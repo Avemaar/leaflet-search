@@ -599,7 +599,23 @@ L.Control.Search = L.Control.extend({
 					clearTimeout(this.timerKeypress);	//cancel last search request while type in				
 					this.timerKeypress = setTimeout(function() {	//delay before request, for limit jsonp/ajax request
 
-						that._fillRecordsCache();
+						// if((this.options.callData) || (this.options.url2))//jsonP
+						// {
+						// that._fillRecordsCacheJSONP();
+						// }
+						// else
+						// {
+						// if((this.options.callData) || (this.options.url1))//Ajax
+						// {
+						// that._fillRecordsCacheAJAX();
+						// }
+						// }
+						
+						
+						if(that.options.url1)
+						{
+						that._fillRecordsCacheAJAX();
+						}
 					
 					}, this.options.delayType);
 				}
@@ -662,16 +678,16 @@ L.Control.Search = L.Control.extend({
 		//****************************************************
 			else if(this.options.url1 )	// REQUEST
 		{
-			if(this.options.jsonpParam)//AJAX
-			{
-				that = this;
-				this._recordsFromJsonp(inputText, function(data) {// is async request then it need callback
-					that._recordsCache = data;
-					that.showTooltip();
-					L.DomUtil.removeClass(that._container, 'search-load');
-				});
-			}
-			else
+			//if(this.options.jsonpParam)//AJAX
+			// {
+				// that = this;
+				// this._recordsFromJsonp(inputText, function(data) {// is async request then it need callback
+					// that._recordsCache = data;
+					// that.showTooltip();
+					// L.DomUtil.removeClass(that._container, 'search-load');
+				// });
+			// }
+			// else
 			{
 				that = this;
 				this._recordsFromAjax(inputText, function(data) {// is async request then it need callback
@@ -691,6 +707,121 @@ L.Control.Search = L.Control.extend({
 			L.DomUtil.removeClass(this._container, 'search-load');
 		}
 	},
+
+//*********************************************************************************************************
+
+_fillRecordsCacheAJAX: function() {
+//TODO important optimization!!! always append data in this._recordsCache
+//  now _recordsCache content is emptied and replaced with new data founded
+//  always appending data on _recordsCache give the possibility of caching ajax, jsonp and layersearch!
+//
+//TODO here insert function that search inputText FIRST in _recordsCache keys and if not find results.. 
+//  run one of callbacks search(callData,jsonpUrl or options.layer) and run this.showTooltip
+//
+//TODO change structure of _recordsCache
+//	like this: _recordsCache = {"text-key1": {loc:[lat,lng], ..other attributes.. }, {"text-key2": {loc:[lat,lng]}...}, ...}
+//	in this mode every record can have a free structure of attributes, only 'loc' is required
+	
+		var inputText = this._input.value,
+			that;
+		
+		L.DomUtil.addClass(this._container, 'search-load');
+
+		if(this.options.callData)	//CUSTOM SEARCH CALLBACK
+		{
+			that = this;
+			this.options.callData(inputText, function(jsonraw) {
+
+				that._recordsCache = that._filterJSON(jsonraw);
+
+				that.showTooltip();
+
+				L.DomUtil.removeClass(that._container, 'search-load');
+			});
+		}
+
+			if(this.options.url1 )	//Ajax REQUEST
+		{
+
+			{
+				that = this;
+				this._recordsFromAjax(inputText, function(data) {// is async request then it need callback
+					that._recordsCache = data;
+					that.showTooltip();
+					L.DomUtil.removeClass(that._container, 'search-load');
+				});
+			}
+		}
+		
+		
+		else if(this.options.layer)	//SEARCH ELEMENTS IN PRELOADED LAYER
+		{
+			this._recordsCache = this._recordsFromLayer();	//fill table key,value from markers into layer				
+			this.showTooltip();
+			L.DomUtil.removeClass(this._container, 'search-load');
+		}
+	},
+
+//*********************************************************************************************************
+
+	
+//*********************************************************************************************************	
+	_fillRecordsCacheJSONP: function() {
+//TODO important optimization!!! always append data in this._recordsCache
+//  now _recordsCache content is emptied and replaced with new data founded
+//  always appending data on _recordsCache give the possibility of caching ajax, jsonp and layersearch!
+//
+//TODO here insert function that search inputText FIRST in _recordsCache keys and if not find results.. 
+//  run one of callbacks search(callData,jsonpUrl or options.layer) and run this.showTooltip
+//
+//TODO change structure of _recordsCache
+//	like this: _recordsCache = {"text-key1": {loc:[lat,lng], ..other attributes.. }, {"text-key2": {loc:[lat,lng]}...}, ...}
+//	in this mode every record can have a free structure of attributes, only 'loc' is required
+	
+		var inputText = this._input.value,
+			that;
+		
+		L.DomUtil.addClass(this._container, 'search-load');
+
+		if(this.options.callData)	//CUSTOM SEARCH CALLBACK
+		{
+			that = this;
+			this.options.callData(inputText, function(jsonraw) {
+
+				that._recordsCache = that._filterJSON(jsonraw);
+
+				that.showTooltip();
+
+				L.DomUtil.removeClass(that._container, 'search-load');
+			});
+		}
+		
+		else if(this.options.url2)	//JSONP REQUEST
+		{
+			if(this.options.jsonpParam)//jsonp
+			{
+				that = this;
+				this._recordsFromJsonp(inputText, function(data) {// is async request then it need callback
+					that._recordsCache = data;
+					that.showTooltip();
+					L.DomUtil.removeClass(that._container, 'search-load');
+				});
+			}
+
+		}
+
+		
+		
+		else if(this.options.layer)	//SEARCH ELEMENTS IN PRELOADED LAYER
+		{
+			this._recordsCache = this._recordsFromLayer();	//fill table key,value from markers into layer				
+			this.showTooltip();
+			L.DomUtil.removeClass(this._container, 'search-load');
+		}
+	},
+	
+	
+	//******************************************************************************************************
 	
 	_handleAutoresize: function() {	//autoresize this._input
 	    //TODO refact _handleAutoresize now is not accurate
@@ -751,7 +882,23 @@ L.Control.Search = L.Control.extend({
 				var loc = this._getLocation(this._input.value);
 				
 				if(loc===false)
+					{
 					this.showAlert();
+					//not found ag itt ezzel le van zarva
+					
+					//ezt az agat folytatni ugy hogy:ResponseJsonP
+					this._fillRecordsCacheJSONP();
+					loc = this._getLocation(this._input.value);
+					// if(loc!=false)
+					// {
+						// this.showLocation(loc, this._input.value);
+					// this.fire('search_locationfound', {
+							// latlng: loc,
+							// text: this._input.value,
+							// layer: loc.layer ? loc.layer : null
+						// });
+					// }else this.showAlert();
+					}
 				else
 				{
 					this.showLocation(loc, this._input.value);
